@@ -1,0 +1,17 @@
+import pandas as pd
+import numpy as np
+from sklearn import linear_model
+df = pd.read_csv('homeprices.csv')
+df
+
+df.bedrooms.median()
+df.bedrooms = df.bedrooms.fillna(df.bedrooms.median())
+df
+
+reg = linear_model.LinearRegression()
+reg.fit(df.drop('price',axis='columns'),df.price)
+
+reg.intercept_
+reg.coef_
+
+reg.predict([[3000, 3, 40]])
