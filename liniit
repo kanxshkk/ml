@@ -1,0 +1,69 @@
+#importing necessary libraries
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+     
+
+#uploading the dataset
+data = pd.read_csv("data.csv", header=None)
+
+#header = None specifies that the dataset doesn't have any headers
+
+data
+
+x = data[0].values
+y = data[1].values
+
+#viewing the dataset
+plt.figure()
+plt.plot(x, y,'ro')
+#ro sets the datapoints to red dots
+plt.show()
+
+#Hyperparameters
+num_iter = 50
+lr = 0.0001
+#Initiating variables m and c
+m = 0.0
+c = 0.0
+
+#list to keep track of changes in cost function, m and c
+history_cost = []
+m_hist = []
+c_hist = []
+
+for i in range(num_iter):
+  y_pred = m*x + c
+
+  error = y_pred - y
+  cost = 0.5*np.mean(error**2)
+
+  m_deriv = np.mean((y_pred - y)*x)
+  c_deriv = np.mean((y_pred - y))
+
+  #Here we are simultaneously updating both m and c
+
+  m = m - lr*m_deriv
+  c = c - lr*c_deriv
+
+  history_cost.append(cost)
+
+#plotting the cost function for each iteration
+plt.figure()
+x_labels = np.arange(0, len(history_cost), 1)
+plt.plot(x_labels,history_cost, 'r')
+plt.show()
+     
+
+plt.figure()
+plt.plot(x,y,'ro')
+x_line = np.linspace(20,80,100)
+y_line = m*x_line + c
+plt.plot(x_line, y_line)
+     
+
+  m_hist.append(m)
+  c_hist.append(c)
+
+print(m)
+print(c)
