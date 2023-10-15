@@ -252,6 +252,86 @@ int main() {
     pthread_cond_init(&can_read, NULL);
     pthread_cond_init(&can_write, NULL);
 
+PRODUCER CONSUMER SEMAPHORE
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+#define BUFFER_SIZE 10
+
+int buffer[BUFFER_SIZE];
+int in = 0;
+int out = 0;
+int count = 0;
+
+sem_t mutex;        // Replace mutex with a semaphore
+sem_t not_empty;
+sem_t not_full;
+
+void produce(int item) {
+    buffer[in] = item;
+    in = (in + 1) % BUFFER_SIZE;
+    count++;
+}
+
+int consume() {
+    int item = buffer[out];
+    out = (out + 1) % BUFFER_SIZE;
+    count--;
+    return item;
+}
+
+void* producer(void* arg) {
+    for (int i = 1; i <= 20; i++) {
+        sem_wait(&not_full);
+        sem_wait(&mutex);
+
+        produce(i);
+        printf("Produced: %d\n", i);
+
+        sem_post(&mutex);
+        sem_post(&not_empty);
+    }
+
+    return NULL;
+}
+
+void* consumer(void* arg) {
+    for (int i = 1; i <= 20; i++) {
+        sem_wait(&not_empty);
+        sem_wait(&mutex);
+
+        int item = consume();
+        printf("Consumed: %d\n", item);
+
+        sem_post(&mutex);
+        sem_post(&not_full);
+    }
+
+    return NULL;
+}
+
+int main() {
+    pthread_t producer_thread, consumer_thread;
+
+    sem_init(&mutex, 0, 1);  // Initialize semaphore with an initial value of 1
+    sem_init(&not_empty, 0, 0);
+    sem_init(&not_full, 0, BUFFER_SIZE);
+
+    pthread_create(&producer_thread, NULL, producer, NULL);
+    pthread_create(&consumer_thread, NULL, consumer, NULL);
+
+    pthread_join(producer_thread, NULL);
+    pthread_join(consumer_thread, NULL);
+
+    sem_destroy(&mutex);
+    sem_destroy(&not_empty);
+    sem_destroy(&not_full);
+
+    return 0;
+}
+
     for (int i = 0; i < NUM_READERS; i++) {
         reader_ids[i] = i + 1;
         pthread_create(&readers[i], NULL, reader, &reader_ids[i]);
