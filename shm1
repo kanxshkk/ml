@@ -1,0 +1,131 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <string.h>
+#include <pthread.h>
+
+#define SHM_SIZE 1024
+#define ROUNDS 5
+
+// Shared memory data structure
+struct SharedData {
+    int c;
+    int d;
+};
+
+int score_c = 0;
+int score_d = 0;
+
+// Mutex for thread-safe random number generation
+pthread_mutex_t rand_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Function to generate a random integer in a thread-safe manner
+int generateRandomNumber() {
+    int random;
+    pthread_mutex_lock(&rand_mutex);
+    random = rand() % 100 + 1; // Change the range as needed
+    pthread_mutex_unlock(&rand_mutex);
+    return random;
+}
+
+// Function for child C to play the game
+void *playGameC(void *arg) {
+    struct SharedData *shm_data = (struct SharedData *)arg;
+    int c, d;
+
+    for (int round = 1; round <= ROUNDS; round++) {
+        c = generateRandomNumber();
+        shm_data->c = c;
+
+        printf("C sends: %d\n", c);
+        sleep(1); // Simulate some delay
+
+        if (c == shm_data->d) {
+            printf("Round ignored (c == d)\n");
+        } else if (c < shm_data->d) {
+            printf("C gets a point!\n");
+            score_c++;
+        } else {
+            printf("D gets a point!\n");
+            score_d++;
+        }
+
+        printf("Current Score: C=%d, D=%d\n", score_c, score_d);
+        printf("---------------------------\n");
+    }
+
+    pthread_exit(NULL);
+}
+
+// Function for child D to play the game
+void *playGameD(void *arg) {
+    struct SharedData *shm_data = (struct SharedData *)arg;
+    int c, d;
+
+    for (int round = 1; round <= ROUNDS; round++) {
+        d = generateRandomNumber();
+        shm_data->d = d;
+
+        printf("D sends: %d\n", d);
+        sleep(1); // Simulate some delay
+
+        if (shm_data->c == d) {
+            printf("Round ignored (c == d)\n");
+        } else if (shm_data->c < d) {
+            printf("C gets a point!\n");
+            score_c++;
+        } else {
+            printf("D gets a point!\n");
+            score_d++;
+        }
+
+        printf("Current Score: C=%d, D=%d\n", score_c, score_d);
+        printf("---------------------------\n");
+    }
+
+    pthread_exit(NULL);
+}
+
+int main() {
+    // Initialize shared memory for communication
+    int shmid;
+    struct SharedData *shm_data;
+    key_t key = ftok("shmfile", 65);
+    shmid = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
+    shm_data = (struct SharedData *)shmat(shmid, (void *)0, 0);
+
+    // Initialize the random number generator
+    srand(time(NULL));
+
+    pthread_t thread_c, thread_d;
+
+    if (pthread_create(&thread_c, NULL, playGameC, shm_data) != 0) {
+        perror("pthread_create");
+        exit(1);
+    }
+
+    if (pthread_create(&thread_d, NULL, playGameD, shm_data) != 0) {
+        perror("pthread_create");
+        exit(1);
+    }
+
+    pthread_join(thread_c, NULL);
+    pthread_join(thread_d, NULL);
+
+    if (score_c > score_d) {
+        printf("C is the winner with a score of %d!\n", score_c);
+    } else if (score_d > score_c) {
+        printf("D is the winner with a score of %d!\n", score_d);
+    } else {
+        printf("It's a tie. Both C and D have the same score of %d!\n", score_c);
+    }
+    
+    // Clean up shared memory
+    shmdt(shm_data);
+    shmctl(shmid, IPC_RMID, NULL);
+
+    return 0;
+}
